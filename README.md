@@ -16,8 +16,9 @@ You'll need the following images from offical Docker hub repos. Tags can be chan
 2. Let's get the Zabbix server. `docker pull zabbix/zabbix-server-mysql:ubuntu-trunk`
 3. Let's get the Zabbix web interface. `docker pull zabbix/zabbix-web-nginx-mysql:ubuntu-trunk`
 4. Let's get the Zabbix agent. `docker pull zabbix/zabbix-agent:ubuntu-trunk`
-5. Let's create a user-defined bridged Docker network for our containers to use to communicate. Containers added to this network will automatically open ALL ports to the network. Any ports needing to be opened for hosts outside the network will need to be exposed. We'll expose port 80 for the web interface in a later step so we can access it. `docker network create zabbix-net`. (Alternately, we can specify the subnet and ip-range if needed, `docker network create --driver=bridge --subnet=172.30.0.0/16 --ip-range=172.30.0.0/24 --gateway=172.28.0.1 zabbix-net`.)
-6. We can inspect this network to confirm the new network settings. `docker network inspect zabbix-net`.
+5. Let's create a user-defined bridged Docker network for our containers to use to communicate. Containers added to this network will automatically OPEN ALL ports to hosts INSIDE network. Any ports needing to be opened for hosts OUTSIDE the network will need to be exposed. We'll expose port 80 for the web interface in a later step so we can access it from our host machine. Now, let's create our bridged network, `docker network create zabbix-net`. (Alternately, we can specify the subnet and ip-range if needed, `docker network create --driver=bridge --subnet=172.30.0.0/16 --ip-range=172.30.0.0/24 --gateway=172.28.0.1 zabbix-net`.)
+6. We can inspect this network to confirm the new network settings. `docker network inspect zabbix-net`. 
+7. NOTE: Depending on which network is created, you may need to adjust the IP addressed in the Run section directly below.
 
 ## Run
 Now we have the docker images on our machine, we can run the images with necessary configs and attach them to our birdged network.
@@ -47,7 +48,9 @@ Now we have the docker images on our machine, we can run the images with necessa
 6. We'll want to verify it's been added to our docker network, and then ultimately added as a Zabbix Agent via our Auto Discovery rule.
 
 ## Futher work
-
+1. We may need to change the `Interface` the agent for our `Zabbix server` to be the first agent we ran in step 2. We can find this setting under `Configuration > Hosts > Zabbix Server`. Just change the interface to the IP of one of the agents you started, i.e. `172.30.0.5:10050` and set it as the `default`. This will eliminate some Problems in the Dashboard.
+2. As running agents on the local machine doesn't seem to be of much use we will want to consider deploying agents on other machines. Since the `bridged` network only applies to the local machine, we will want to consider Docker's `overlay` network. I haven't set up an overlay network, but there is documentation at https://docs.docker.com.
+3. Setting up a `docker-compose.yaml` script to automate this deployment.
 
 
 
