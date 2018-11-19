@@ -23,11 +23,30 @@ You'll need the following images from offical Docker hub repos. Tags can be chan
 Now we have the docker images on our machine, we can run the images with necessary configs and attach them to our birdged network.
 
 1. Let's first start mysql. `docker run --name mysql-server-0 --network zabbix-net -e MYSQL_ROOT_PASSWORD="zabbix4mysql8" -d mysql:8` and we can check the logs `docker logs mysql-server-0`. Note: yes this is obviously insecure defining the root password on the cli.
-2. Let's start the zabbix server. `docker run --name zserver-0 --network zabbix-net -e DB_SERVER_HOST="172.18.0.2" -e MYSQL_USER="root" -e MYSQL_PASSWORD="zabbix4mysql8" -d zabbix/zabbix-server-mysql:ubuntu-trunk` and let's check the logs again `docker logs zserver-0`.
-3. Let's start the zabbix web interface. Note here, that we will expose port 80 so we can access the interface from the host machine. `docker run --name zweb-0 --network zabbix-net -p 80:80 -e ZBX_SERVER_HOST="172.18.0.3" -e DB_SERVER_HOST="172.18.0.2" -e MYSQL_USER="root" -e MYSQL_PASSWORD="zabbix4mysql8" -e PHP_TZ="America/New_York" -d zabbix/zabbix-web-nginx-mysql:ubuntu-trunk` and check the logs `docker logs zweb-0`.
-4. Next let's verify our containers and confirm the ip addresses match the parameters above, `docker network inspect zabbix-net`.
+2. Let's start the zabbix server. `docker run --name zserver-0 --network zabbix-net -e DB_SERVER_HOST="172.30.0.2" -e MYSQL_USER="root" -e MYSQL_PASSWORD="zabbix4mysql8" -d zabbix/zabbix-server-mysql:ubuntu-trunk` and let's check the logs again `docker logs zserver-0`.
+3. Let's start the zabbix web interface. Note here, that we will expose port 80 so we can access the interface from the host machine. `docker run --name zweb-0 --network zabbix-net -p 80:80 -e ZBX_SERVER_HOST="172.30.0.3" -e DB_SERVER_HOST="172.30.0.2" -e MYSQL_USER="root" -e MYSQL_PASSWORD="zabbix4mysql8" -e PHP_TZ="America/New_York" -d zabbix/zabbix-web-nginx-mysql:ubuntu-trunk` and check the logs `docker logs zweb-0`.
+4. Next let's verify our containers are attached to the network and confirm the ip addresses match the parameters above, `docker network inspect zabbix-net`.
 5. The next step is to login to the zabbix web interface as setup a few parameters. visit `http://localhost:80` in your browser and you can sign in with the default credentials `Admin` and `zabbix`.
+6. On the Zabbix Dashboard, let's confirm our server is running `Zabbix server is running	Yes	172.30.0.3:10051`.
 
+## Auto Discovery
+1. Let's setup our Discovery network and ensure new agents are added as Hosts. This will help us verify the docker network and zabbix server/agents are working as expected. Further customization may be desired.
+2. In the web interface `Configuration > Discovery > Local network`. Let's set our network range as `172.30.0.0/24`, Check Interval `10s` and ensure the Check is `Zabbix agent` port `10050` and key `system.uname` should be fine. Additionally, we want the check uniqueness to be `IP address`. Now "Update".
+3. Let's setup an Action to add the host, tag it, and give it a template. `Configuration > Actions > Create Action`. Note: you'll see an exisiting "Disabled" Auto discovery action, but we can ignore that one.
+4. Name the new Action "Auto Discovery" then add a Condition that `Host IP equals 172.30.0.0/24`. 
+5. Under `Operations` let's add the following Operations `Add Host`, `Add to host groups: Discovered hosts`, and `Link to templates: Template App Zabbix Agent`. This isn't obviosuly what we want exactly, but it will at least let us confirm our agents and docker network/containers are working as expected.
+6. Be sure to click `Enabled` on the Actions tab, and click Update.
+7. On the Dashboard, we might want to add a widget for `Discovery Status > Local Network`.
+
+## Adding Zabbix Agents
+1. Now we will add some sample agents, and ensure they are found by our server. These docker containers, by default, are run in `unpriviledged` mode, so if we want to give the agent containers access to the host system's resources, we can start run the agents with the `--priviledged` flag. However, I have not tested this specifically, yet.
+2. Let's start an agent. `docker run --name zagent-0 --network zabbix-net -e ZBX_HOSTNAME="zagent-0" -e ZBX_SERVER_HOST="172.30.0.3" -d zabbix/zabbix-agent:ubuntu-trunk` and check the logs `docker logs zagent-0`.
+3. We can check the network again to ensure the container was attached properly, `docker network inspect zabbix-net`.
+4. Depending on the refresh rate of your Monitoring Dashboard, you will soon see under `Discovery Status > Local Network` a single agent `Up(1)`.
+5. Next, we can add another agent, using the command above, but changing the `--name`, i.e. `docker run --name zagent-1 --network zabbix-net -e ZBX_HOSTNAME="zagent-4" -e ZBX_SERVER_HOST="172.30.0.3" -d zabbix/zabbix-agent:ubuntu-trunk`.
+6. We'll want to verify it's been added to our docker network, and then ultimately added as a Zabbix Agent via our Auto Discovery rule.
+
+## Futher work
 
 
 
